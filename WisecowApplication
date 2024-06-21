@@ -1,0 +1,185 @@
+Problem Statement 1: Containerisation and Deployment of Wisecow Application on Kubernetes
+Dockerization:
+
+Dockerfile:
+
+Create a Dockerfile in the root of the Wisecow application repository (Dockerfile):
+dockerfile
+
+# Use official Node.js image as the base image
+FROM node:14
+
+# Set working directory
+WORKDIR /app
+
+# Copy package.json and package-lock.json
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install
+
+
+
+# Expose port
+EXPOSE 3000
+
+# Command to run the application
+CMD ["npm", "start"]
+Kubernetes Deployment:
+Kubernetes Manifest Files:
+Create Kubernetes deployment and service YAML files (deployment.yaml and service.yaml respectively):
+
+deployment.yaml:
+
+yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wisecow-app
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: wisecow
+  template:
+    metadata:
+      labels:
+        app: wisecow
+    spec:
+      containers:
+        - name: wisecow-container
+          image: your-registry/wisecow-image:v1
+          ports:
+            - containerPort: 3000
+service.yaml:
+
+yaml
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: wisecow-service
+spec:
+  selector:
+    app: wisecow
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+  type: LoadBalancer
+Continuous Integration and Deployment (CI/CD):
+GitHub Actions Workflow:
+Implement a GitHub Actions workflow (ci-cd.yaml) for automated build, push, and deployment:
+yaml
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Build and push Docker image
+        id: docker_build
+        uses: docker/build-push-action@v2
+        with:
+          push: true
+          tags: your-registry/wisecow-image:latest
+
+      - name: Deploy to Kubernetes
+        uses: Azure/k8s-deploy@v1
+        with:
+          kubeconfig: ${{ secrets.KUBE_CONFIG }}
+          namespace: default
+          manifests: |
+            kubernetes/deployment.yaml
+            kubernetes/service.yaml
+
+TLS Implementation (Challenge Goal):
+Secure TLS Communication:
+Implement TLS certificates and update Kubernetes manifests accordingly for HTTPS communication.
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Problem Statement 2: Selected Objectives
+
+Objective 1: System Health Monitoring Script (Bash)
+
+System Health Monitoring Script (monitor_health.sh):
+Monitor CPU usage, memory usage, disk space, and running processes. Send alerts if thresholds are exceeded.
+bash
+
+#!/bin/bash
+
+# Thresholds
+CPU_THRESHOLD=80
+MEMORY_THRESHOLD=90
+DISK_THRESHOLD=80
+
+# Get metrics
+CPU_USAGE=$(top -bn1 | grep "Cpu(s)" | sed "s/.*, *\([0-9.]*\)%* id.*/\1/" | awk '{print 100 - $1}')
+MEMORY_USAGE=$(free | awk '/Mem/{printf "%.2f", $3/$2 * 100}')
+DISK_USAGE=$(df / | awk 'NR==2{print $5}' | sed 's/%//')
+
+# Check metrics
+if (( $(echo "$CPU_USAGE > $CPU_THRESHOLD" | bc -l) )); then
+    echo "High CPU usage: $CPU_USAGE%"
+fi
+
+if (( $(echo "$MEMORY_USAGE > $MEMORY_THRESHOLD" | bc -l) )); then
+    echo "High memory usage: $MEMORY_USAGE%"
+fi
+
+if (( $(echo "$DISK_USAGE > $DISK_THRESHOLD" | bc -l) )); then
+    echo "High disk usage: $DISK_USAGE%"
+fi
+
+# Check running processes
+ALERT_PROCESSES=$(ps axo %cpu,%mem,cmd | awk '$1 > 20 || $2 > 20')
+
+if [ -n "$ALERT_PROCESSES" ]; then
+    echo "Processes exceeding usage thresholds:"
+    echo "$ALERT_PROCESSES"
+fi
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Objective 4: Application Health Checker (Python)
+
+Application Health Checker Script (check_app_health.py):
+Check the uptime and status of an application using HTTP status codes.
+python
+
+
+import requests
+def check_app_health(url):
+
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            return True, "Application is UP"
+        else:
+            return False, f"Application is DOWN (HTTP {response.status_code})"
+    except requests.exceptions.RequestException as e:
+        return False, f"Application is DOWN (Exception: {str(e)})"
+
+if __name__ == "__main__":
+    app_url = "http://localhost:3000"  # Replace with actual URL
+    is_up, message = check_app_health(app_url)
+    print(message)
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Conclusion
+By following these steps and scripts, you should be able to successfully complete both Problem Statement 1 
+(containerization and deployment on Kubernetes with CI/CD) and two selected objectives from Problem Statement 2 
+(system health monitoring and application health checking). Adjust the scripts as per specific requirements and environment configurations.
+
+
+
